@@ -15,9 +15,12 @@
 //   HUBPAY_CUSTOMER_DETAIL_PATH - path template for customer detail, {id} substituted
 //   HUBPAY_TRANSACTIONS_PATH    - path template for transactions, {id} substituted
 
-function required(name) {
+// `neededInSample` = whether the variable is still required when running in
+// sample mode (e.g. Notion creds are; the live data APIs are not).
+function required(name, neededInSample = true) {
   const v = process.env[name];
-  if (!v && !isDryRun()) {
+  const skip = isDryRun() || (isSample() && !neededInSample);
+  if (!v && !skip) {
     throw new Error(`Missing required environment variable: ${name}`);
   }
   return v ?? "";
@@ -27,17 +30,22 @@ export function isDryRun() {
   return String(process.env.DRY_RUN || "").toLowerCase() === "true";
 }
 
+export function isSample() {
+  return String(process.env.SAMPLE || "").toLowerCase() === "true";
+}
+
 export const config = {
   windowDays: Number(process.env.WINDOW_DAYS || 30),
   dryRun: isDryRun(),
+  sample: isSample(),
 
   cube: {
-    url: required("CUBE_API_URL"),
+    url: required("CUBE_API_URL", false),
     token: process.env.CUBE_API_TOKEN || "",
   },
 
   hubpay: {
-    url: required("HUBPAY_API_URL"),
+    url: required("HUBPAY_API_URL", false),
     token: process.env.HUBPAY_API_TOKEN || "",
     // NOTE: confirm these paths against the real Hubpay platform API. They are
     // centralised here so only this file changes if the contract differs.

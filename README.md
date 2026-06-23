@@ -77,8 +77,13 @@ The customer-detail and transactions paths are assumed and centralised in
 ```bash
 npm run report          # compute + publish to Notion
 npm run report:dry      # compute + log only (no Notion write)
+npm run report:sample   # publish the clients from the original analysis (only NOTION_* needed)
 WINDOW_DAYS=45 npm run report
 ```
+
+Use `report:sample` to validate the Notion database layout before wiring the
+live `CUBE_*`/`HUBPAY_*` secrets — it needs only `NOTION_TOKEN` and
+`NOTION_DATABASE_ID`. Add `DRY_RUN=true` to any command to log without writing.
 
 Schedule: daily 06:00 GST. Manual runs (Actions → *Run workflow*) accept a
 `window_days` and `dry_run` input, which is the interactive knob.

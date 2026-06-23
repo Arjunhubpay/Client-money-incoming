@@ -3,6 +3,7 @@
 import { config, windowRange } from "./config.js";
 import { buildReport } from "./analysis.js";
 import { publish } from "./notion.js";
+import { sampleMatches, sampleStats } from "./sample.js";
 
 function logTable(matches) {
   if (!matches.length) {
@@ -25,7 +26,11 @@ async function main() {
     `Client-money report | window=${config.windowDays}d [${range[0]} -> ${range[1]}] | dryRun=${config.dryRun}`,
   );
 
-  const { matches, nearMisses, stats } = await buildReport(range);
+  const { matches, nearMisses, stats } = config.sample
+    ? { matches: sampleMatches, nearMisses: [], stats: sampleStats }
+    : await buildReport(range);
+
+  if (config.sample) console.log("SAMPLE mode: using fixed clients from the original analysis.");
 
   console.log(
     `Funnel: ${stats.candidates} USD top-up recipients -> ` +
