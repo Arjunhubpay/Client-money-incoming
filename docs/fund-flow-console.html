@@ -1,0 +1,628 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Fund-Flow Pattern Detector — v2 console</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --ground: #0D1A1C;
+    --panel: #11262A;
+    --panel-2: #152E33;
+    --line: #21383B;
+    --text: #DCE6E3;
+    --dim: #7C918D;
+    --fire: #FF6B4A;      /* warm: the decision axis — used only for FIRE */
+    --attr: #4FB8C4;      /* cool: the attribution axis — informational */
+    --fire-wash: rgba(255, 107, 74, 0.07);
+  }
+
+  * { box-sizing: border-box; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    margin: 0;
+    background:
+      radial-gradient(1200px 600px at 78% -8%, rgba(79, 184, 196, 0.06), transparent 60%),
+      var(--ground);
+    color: var(--text);
+    font-family: "IBM Plex Sans", system-ui, sans-serif;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap {
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: clamp(28px, 5vw, 72px) clamp(20px, 4vw, 48px) 96px;
+  }
+
+  .eyebrow {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: 0.34em;
+    text-transform: uppercase;
+    color: var(--attr);
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin: 0 0 26px;
+  }
+  .eyebrow::after {
+    content: "";
+    height: 1px;
+    flex: 1;
+    background: linear-gradient(90deg, var(--line), transparent);
+  }
+
+  h1.display {
+    font-family: "Space Grotesk", sans-serif;
+    font-weight: 700;
+    font-size: clamp(38px, 7vw, 82px);
+    line-height: 0.95;
+    letter-spacing: -0.02em;
+    margin: 0 0 22px;
+  }
+  h1.display .veto {
+    color: var(--dim);
+    position: relative;
+    white-space: nowrap;
+  }
+  h1.display .veto s {
+    text-decoration-color: var(--fire);
+    text-decoration-thickness: 3px;
+  }
+  h1.display em {
+    font-style: normal;
+    color: var(--fire);
+  }
+
+  .lede {
+    max-width: 60ch;
+    font-size: clamp(16px, 1.6vw, 19px);
+    color: #B6C5C1;
+    margin: 0 0 8px;
+  }
+  .lede b { color: var(--text); font-weight: 600; }
+
+  code {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 0.88em;
+    color: var(--attr);
+    background: rgba(79, 184, 196, 0.08);
+    border: 1px solid var(--line);
+    border-radius: 5px;
+    padding: 1px 6px;
+  }
+
+  /* ---- hero plane ---- */
+  .hero {
+    margin-top: clamp(34px, 5vw, 56px);
+    display: grid;
+    grid-template-columns: 1.55fr 1fr;
+    gap: 28px;
+    align-items: stretch;
+  }
+  @media (max-width: 860px) { .hero { grid-template-columns: 1fr; } }
+
+  .plane {
+    position: relative;
+    background:
+      linear-gradient(180deg, var(--panel-2), var(--panel));
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 18px 18px 8px;
+    min-height: 440px;
+  }
+  .plane canvas { display: block; width: 100%; height: 440px; }
+  .plane .axis-y, .plane .axis-x {
+    position: absolute;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 11px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--dim);
+  }
+  .plane .axis-y {
+    left: -8px; top: 50%;
+    transform: rotate(-90deg) translateX(50%);
+    transform-origin: left center;
+    color: var(--fire);
+  }
+  .plane .axis-x { right: 22px; bottom: 14px; color: var(--attr); }
+
+  .guide {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 24px 24px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+  }
+  .guide h2 {
+    font-family: "Space Grotesk", sans-serif;
+    font-size: 17px;
+    margin: 0;
+    letter-spacing: -0.01em;
+  }
+  .legend-row { display: flex; align-items: flex-start; gap: 12px; font-size: 14px; }
+  .legend-row .swatch {
+    flex: none; width: 14px; height: 14px; border-radius: 4px; margin-top: 3px;
+  }
+  .legend-row .swatch.fire { background: var(--fire); box-shadow: 0 0 12px rgba(255,107,74,.6); }
+  .legend-row .swatch.silent { background: transparent; border: 1.5px solid var(--attr); }
+  .legend-row .swatch.line { background: repeating-linear-gradient(90deg, var(--fire) 0 6px, transparent 6px 10px); border-radius: 0; height: 3px; margin-top: 9px; }
+  .legend-row .swatch.v1 { background: transparent; border: 1px dashed var(--dim); }
+  .legend-row span b { color: var(--text); }
+  .legend-row span small { display: block; color: var(--dim); font-size: 12.5px; }
+
+  .pullquote {
+    margin-top: auto;
+    border-left: 2px solid var(--fire);
+    padding: 12px 0 12px 16px;
+    font-size: 14.5px;
+    color: #C7D5D1;
+  }
+  .pullquote b { color: var(--fire); font-weight: 600; }
+
+  /* ---- pipeline ---- */
+  .pipeline {
+    margin-top: 64px;
+    border-top: 1px solid var(--line);
+    border-bottom: 1px solid var(--line);
+    padding: 26px 0;
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 20px;
+  }
+  @media (max-width: 760px) { .pipeline { grid-template-columns: 1fr 1fr; } }
+  .step .num {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 12px; font-weight: 600; color: var(--attr);
+    letter-spacing: 0.1em;
+  }
+  .step .what {
+    font-family: "Space Grotesk", sans-serif;
+    font-size: 15px; font-weight: 500; margin: 6px 0 4px;
+  }
+  .step.fire-step .what { color: var(--fire); }
+  .step p { margin: 0; font-size: 13px; color: var(--dim); }
+
+  /* ---- section heading ---- */
+  .sec-head { margin: 76px 0 26px; }
+  .sec-head .kicker {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 12px; letter-spacing: 0.28em; text-transform: uppercase;
+    color: var(--dim); margin: 0 0 10px;
+  }
+  .sec-head h2 {
+    font-family: "Space Grotesk", sans-serif; font-weight: 700;
+    font-size: clamp(24px, 3.4vw, 34px); letter-spacing: -0.015em; margin: 0;
+  }
+
+  /* ---- two axes ---- */
+  .axes { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; }
+  @media (max-width: 760px) { .axes { grid-template-columns: 1fr; } }
+  .axis-card {
+    background: var(--panel); border: 1px solid var(--line);
+    border-radius: 14px; padding: 26px 26px 24px; position: relative; overflow: hidden;
+  }
+  .axis-card::before {
+    content: ""; position: absolute; inset: 0 auto 0 0; width: 4px;
+  }
+  .axis-card.strength::before { background: var(--fire); }
+  .axis-card.attribution::before { background: var(--attr); }
+  .axis-card .tag {
+    font-family: "IBM Plex Mono", monospace; font-size: 12px; font-weight: 500;
+    letter-spacing: 0.1em; text-transform: uppercase;
+  }
+  .axis-card.strength .tag { color: var(--fire); }
+  .axis-card.attribution .tag { color: var(--attr); }
+  .axis-card h3 {
+    font-family: "Space Grotesk", sans-serif; font-weight: 700;
+    font-size: 22px; margin: 8px 0 12px; letter-spacing: -0.01em;
+  }
+  .axis-card p { margin: 0 0 14px; font-size: 14.5px; color: #B6C5C1; }
+  .axis-card .formula {
+    font-family: "IBM Plex Mono", monospace; font-size: 13px; color: var(--text);
+    background: var(--ground); border: 1px solid var(--line); border-radius: 8px;
+    padding: 12px 14px; line-height: 1.7;
+  }
+  .axis-card .formula .c { color: var(--dim); }
+
+  /* ---- review queue ---- */
+  .queue-group-label {
+    font-family: "IBM Plex Mono", monospace; font-size: 12px; letter-spacing: 0.2em;
+    text-transform: uppercase; color: var(--dim); margin: 30px 0 12px;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .queue-group-label::after { content:""; flex:1; height:1px; background: var(--line); }
+
+  .row {
+    display: grid;
+    grid-template-columns: 18px 1.6fr 1.4fr 92px 110px;
+    gap: 18px; align-items: center;
+    padding: 16px 18px;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    background: var(--panel);
+    margin-bottom: 10px;
+    transition: border-color .18s ease, transform .18s ease;
+  }
+  .row:hover { border-color: #2f5258; transform: translateX(2px); }
+  .row.is-fire { background: linear-gradient(90deg, var(--fire-wash), var(--panel) 42%); border-color: rgba(255,107,74,.32); }
+
+  .row .dot { width: 11px; height: 11px; border-radius: 50%; }
+  .row.is-fire .dot { background: var(--fire); box-shadow: 0 0 10px rgba(255,107,74,.7); }
+  .row .dot.silent { border: 1.5px solid var(--attr); }
+
+  .row .subject { font-weight: 600; font-size: 15px; }
+  .row .subject small { display:block; color: var(--dim); font-weight: 400; font-size: 12.5px; font-family:"IBM Plex Mono", monospace; letter-spacing: .02em; }
+
+  .row .attr-cell { font-family: "IBM Plex Mono", monospace; font-size: 12.5px; color: #A7B8B4; }
+  .row .attr-cell .conf { color: var(--attr); }
+
+  .row .score { font-family: "Space Grotesk", sans-serif; font-weight: 700; font-size: 24px; text-align: right; }
+  .row.is-fire .score { color: var(--fire); }
+  .row .score.zero { color: var(--dim); }
+
+  .badge {
+    justify-self: end;
+    font-family: "IBM Plex Mono", monospace; font-size: 11px; font-weight: 600;
+    letter-spacing: 0.12em; text-transform: uppercase;
+    padding: 6px 12px; border-radius: 999px; white-space: nowrap;
+  }
+  .badge.fire { color: var(--fire); border: 1px solid rgba(255,107,74,.5); background: rgba(255,107,74,.1); }
+  .badge.silent { color: var(--dim); border: 1px solid var(--line); }
+  .badge.fx { color: var(--attr); border: 1px solid rgba(79,184,196,.4); margin-left: 6px; }
+
+  .fx-wrap { justify-self: end; display: flex; align-items: center; }
+  @media (max-width: 720px) {
+    .row { grid-template-columns: 14px 1fr auto; row-gap: 8px; }
+    .row .attr-cell { grid-column: 2 / -1; }
+    .row .score { grid-column: 2; text-align: left; }
+    .fx-wrap { grid-column: 3; }
+  }
+
+  /* ---- governance footer ---- */
+  .gov {
+    margin-top: 72px; border: 1px solid var(--line); border-radius: 14px;
+    background:
+      linear-gradient(180deg, rgba(79,184,196,.04), transparent),
+      var(--panel);
+    padding: 30px 32px;
+    display: grid; grid-template-columns: auto 1fr; gap: 24px; align-items: start;
+  }
+  @media (max-width: 640px) { .gov { grid-template-columns: 1fr; } }
+  .gov .gate {
+    font-family: "Space Grotesk", sans-serif; font-weight: 700; font-size: 15px;
+    color: var(--attr); writing-mode: vertical-rl; text-orientation: mixed;
+    letter-spacing: 0.2em; text-transform: uppercase; padding-right: 10px;
+    border-right: 1px solid var(--line);
+  }
+  @media (max-width: 640px) { .gov .gate { writing-mode: horizontal-tb; border-right: none; border-bottom: 1px solid var(--line); padding: 0 0 12px; } }
+  .gov h3 { font-family: "Space Grotesk", sans-serif; margin: 0 0 10px; font-size: 18px; }
+  .gov p { margin: 0 0 10px; font-size: 14px; color: #B6C5C1; max-width: 75ch; }
+  .gov .opt { font-family: "IBM Plex Mono", monospace; font-size: 13px; }
+  .gov .opt.a { color: var(--attr); }
+  .gov .opt.b { color: var(--fire); }
+
+  footer.meta {
+    margin-top: 40px; color: var(--dim); font-size: 12.5px;
+    font-family: "IBM Plex Mono", monospace; letter-spacing: 0.04em;
+    display: flex; flex-wrap: wrap; gap: 8px 22px; justify-content: space-between;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    html { scroll-behavior: auto; }
+    .row { transition: none; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <p class="eyebrow">Fund-flow pattern detector · v2 · payops review console</p>
+
+  <h1 class="display">
+    Strength fires the alert.<br />
+    <span class="veto">Attribution never <s>vetoes</s></span> <em>describes</em> it.
+  </h1>
+
+  <p class="lede">
+    The v1 detector folded <b>"which bank is this?"</b> into the pattern score with
+    <code>min(inbound_conf, outbound_conf)</code> — so any AED-to-AED flow with an ambiguous
+    IBAN prefix was silently suppressed, however obvious its shape.
+  </p>
+  <p class="lede">
+    v2 scores two things on <b>separate axes</b>. Only one of them is allowed to fire an alert.
+  </p>
+
+  <!-- HERO: the scoring plane -->
+  <section class="hero">
+    <div class="plane">
+      <canvas id="plane" aria-label="Scatter plot of pattern strength against attribution confidence. The two flagged clients sit high on the strength axis but far left on attribution, inside the region the old min() formula would have suppressed."></canvas>
+      <div class="axis-y">Pattern strength →</div>
+      <div class="axis-x">Attribution confidence →</div>
+    </div>
+
+    <aside class="guide">
+      <h2>Reading the plane</h2>
+
+      <div class="legend-row">
+        <span class="swatch line"></span>
+        <span><b>Fire line — strength ≥ 70.</b><small>The only rule that fires an alert. It runs straight across, ignoring the horizontal axis entirely.</small></span>
+      </div>
+      <div class="legend-row">
+        <span class="swatch fire"></span>
+        <span><b>Fired.</b><small>Sits above the line — regardless of how far left (uncertain) its attribution is.</small></span>
+      </div>
+      <div class="legend-row">
+        <span class="swatch silent"></span>
+        <span><b>Silent.</b><small>Below the line. No recurring paired pattern strong enough to act on.</small></span>
+      </div>
+      <div class="legend-row">
+        <span class="swatch v1"></span>
+        <span><b>v1 fire zone.</b><small>The old formula only fired in the top-right — high strength <em>and</em> high attribution. Both alerts below escaped it.</small></span>
+      </div>
+
+      <p class="pullquote">
+        Cobalt fires at <b>0</b> attribution confidence — we have no idea which banks. Its
+        pattern shape is unmistakable, so it fires anyway.
+      </p>
+    </aside>
+  </section>
+
+  <!-- PIPELINE: a real ordered sequence -->
+  <div class="pipeline">
+    <div class="step"><div class="num">01</div><div class="what">Group by client</div><p>All movements for one account, in and out.</p></div>
+    <div class="step"><div class="num">02</div><div class="what">Pair in ↔ out</div><p>Within ±7 days; ±5% amount for same-currency legs.</p></div>
+    <div class="step"><div class="num">03</div><div class="what">Score strength</div><p>Recurrence × consistency × interval regularity.</p></div>
+    <div class="step"><div class="num">04</div><div class="what">Infer attribution</div><p>Name the provider/corridor — separately, never folded in.</p></div>
+    <div class="step fire-step"><div class="num">05</div><div class="what">Fire if ≥ 70</div><p>Strength alone decides. Attribution just annotates.</p></div>
+  </div>
+
+  <!-- TWO AXES -->
+  <div class="sec-head">
+    <p class="kicker">The two scores, kept apart</p>
+    <h2>Two axes that must never touch</h2>
+  </div>
+
+  <div class="axes">
+    <div class="axis-card strength">
+      <span class="tag">▲ Vertical · decides</span>
+      <h3>Pattern strength</h3>
+      <p>How much this looks like a deliberate, repeating cycle. Built only from the shape of the flow — nothing about counterparties.</p>
+      <div class="formula">
+        <span class="c"># 0–100, recurrence saturates at 6 cycles</span><br />
+        0.4 · recurrence<br />
+        + 0.3 · amount_consistency <span class="c">(1 − CV)</span><br />
+        + 0.3 · interval_regularity <span class="c">(1 − CV)</span>
+      </div>
+    </div>
+    <div class="axis-card attribution">
+      <span class="tag">▶ Horizontal · describes</span>
+      <h3>Attribution confidence</h3>
+      <p>How sure we are which bank or corridor this is, from IBAN prefixes and metadata. Reported as honest labels like <code>"Zand or NBF"</code> — and kept out of the firing decision.</p>
+      <div class="formula">
+        <span class="c"># reported, never multiplied in</span><br />
+        deterministic prefix → 95<br />
+        ambiguous prefix &nbsp;→ 40 &nbsp;<span class="c">"X or Y"</span><br />
+        no IBAN &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;→ &nbsp;0 &nbsp;<span class="c">unknown</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- REVIEW QUEUE -->
+  <div class="sec-head">
+    <p class="kicker">Live output · 6 findings</p>
+    <h2>Review queue</h2>
+  </div>
+
+  <div id="queue"></div>
+
+  <!-- GOVERNANCE -->
+  <div class="gov">
+    <div class="gate">Governance gate</div>
+    <div>
+      <h3>Where this is allowed to run</h3>
+      <p>
+        <span class="opt a">Option A — running now.</span> Aggregated, non-regulated FX flows from
+        the analytics layer (<code>query-analytics</code>). No beneficiary names, no IBANs, no
+        per-transaction personal data. Output is commercial intelligence — forward-contract candidates.
+      </p>
+      <p>
+        <span class="opt b">Option B — gated.</span> Pointing the same engine at live per-client
+        transaction data turns its output into regulated artefacts. It does not run without
+        <b>Compliance / MLRO sign-off</b>.
+      </p>
+    </div>
+  </div>
+
+  <footer class="meta">
+    <span>Compliance findings: synthetic validation set (§3 of the brief)</span>
+    <span>Commercial findings: live Option-A pull · TreasurySettlementDetail · captured 2026-06-23</span>
+  </footer>
+
+</div>
+
+<script>
+  const FINDINGS = [
+    { name:"Meridian Holdings", profile:"compliance", note:"AED→AED layering · 7 tight cycles",
+      strength:99.7, attr:40, fired:true, fx:false, trapped:true,
+      attrLabel:"Zand or NBF → Mashreq or ENBD" },
+    { name:"Cobalt Digital", profile:"compliance", note:"crypto in → USD out · FX",
+      strength:99.8, attr:0, fired:true, fx:true, trapped:true,
+      attrLabel:"unknown → unknown" },
+    { name:"Anchor Estates", profile:"compliance", note:"parks funds · inbound only",
+      strength:0, attr:0, fired:false, fx:false,
+      attrLabel:"n/a — no cycles" },
+    { name:"Harbour Logistics", profile:"compliance", note:"payroll · small in / large unrelated out",
+      strength:0, attr:0, fired:false, fx:false,
+      attrLabel:"n/a — suppressed by ±5% tolerance" },
+    { name:"THE PET SHOP LLC", profile:"commercial", note:"AED/USD · 489,078 AED · 1 order",
+      strength:0, attr:20, fired:false, fx:true,
+      attrLabel:"AED/USD corridor · single_observation" },
+    { name:"SCHWER FITTINGS TRADING LLC", profile:"commercial", note:"AED/EUR · 105,749 AED · 1 order",
+      strength:0, attr:20, fired:false, fx:true,
+      attrLabel:"AED/EUR corridor · single_observation" },
+  ];
+
+  /* ---------- review queue ---------- */
+  const queue = document.getElementById("queue");
+  const groups = [
+    ["compliance", "Compliance · conduit / layering"],
+    ["commercial", "Commercial · forward-contract opportunity (Option A)"],
+  ];
+  for (const [key, label] of groups) {
+    const h = document.createElement("div");
+    h.className = "queue-group-label";
+    h.textContent = label;
+    queue.appendChild(h);
+    for (const f of FINDINGS.filter(x => x.profile === key)) {
+      const row = document.createElement("div");
+      row.className = "row" + (f.fired ? " is-fire" : "");
+      const score = f.strength === 0
+        ? '<div class="score zero">0</div>'
+        : `<div class="score">${f.strength}</div>`;
+      const badge = f.fired
+        ? '<span class="badge fire">Fire</span>'
+        : '<span class="badge silent">Silent</span>';
+      const fx = f.fx ? '<span class="badge fx">FX</span>' : "";
+      row.innerHTML = `
+        <div class="dot ${f.fired ? "" : "silent"}"></div>
+        <div class="subject">${f.name}<small>${f.note}</small></div>
+        <div class="attr-cell">${f.attrLabel}<br /><span class="conf">attr conf ${f.attr}</span></div>
+        ${score}
+        <div class="fx-wrap">${badge}${fx}</div>`;
+      queue.appendChild(row);
+    }
+  }
+
+  /* ---------- the scoring plane ---------- */
+  const canvas = document.getElementById("plane");
+  const ctx = canvas.getContext("2d");
+  const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const C = {
+    ground: "#11262A", line: "#21383B", dim: "#7C918D",
+    fire: "#FF6B4A", attr: "#4FB8C4", text: "#DCE6E3",
+  };
+  const PAD = { l: 52, r: 22, t: 30, b: 44 };
+  let W = 0, H = 0;
+
+  function resize() {
+    const rect = canvas.getBoundingClientRect();
+    const dpr = window.devicePixelRatio || 1;
+    W = rect.width; H = rect.height;
+    canvas.width = W * dpr; canvas.height = H * dpr;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+  const xPx = c => PAD.l + (c / 100) * (W - PAD.l - PAD.r);
+  const yPx = s => PAD.t + (1 - s / 100) * (H - PAD.t - PAD.b);
+
+  // small render-only jitter so coincident silent points stay readable
+  const jitter = { "Harbour Logistics": {x:6,y:-12}, "Anchor Estates": {x:-2,y:0},
+                   "SCHWER FITTINGS TRADING LLC": {x:0,y:-14}, "THE PET SHOP LLC": {x:0,y:0} };
+
+  function draw(progress) {
+    ctx.clearRect(0, 0, W, H);
+    const plotW = W - PAD.l - PAD.r, plotH = H - PAD.t - PAD.b;
+
+    // grid
+    ctx.strokeStyle = C.line; ctx.lineWidth = 1; ctx.font = "11px 'IBM Plex Mono', monospace";
+    ctx.fillStyle = C.dim; ctx.textAlign = "right"; ctx.textBaseline = "middle";
+    for (let s = 0; s <= 100; s += 25) {
+      const y = yPx(s);
+      ctx.globalAlpha = 0.5; ctx.beginPath(); ctx.moveTo(PAD.l, y); ctx.lineTo(W - PAD.r, y); ctx.stroke();
+      ctx.globalAlpha = 1; ctx.fillText(s, PAD.l - 10, y);
+    }
+    ctx.textAlign = "center"; ctx.textBaseline = "top";
+    for (let c = 0; c <= 100; c += 25) {
+      ctx.fillText(c, xPx(c), H - PAD.b + 10);
+    }
+
+    // v1 fire zone: top-right corner only (high strength AND high attribution)
+    const v1x = xPx(70), v1y = yPx(70);
+    ctx.save();
+    ctx.setLineDash([4, 4]); ctx.strokeStyle = C.dim; ctx.globalAlpha = 0.65;
+    ctx.strokeRect(v1x, v1y, (W - PAD.r) - v1x, (PAD.t) - v1y + 0);
+    ctx.setLineDash([]); ctx.globalAlpha = 0.5; ctx.fillStyle = C.dim;
+    ctx.textAlign = "right"; ctx.textBaseline = "bottom";
+    ctx.font = "10px 'IBM Plex Mono', monospace";
+    ctx.fillText("v1 fire zone", W - PAD.r - 6, v1y - 6);
+    ctx.restore();
+
+    // fire band wash + fire line (animated sweep)
+    const fy = yPx(70);
+    ctx.save();
+    ctx.fillStyle = "rgba(255,107,74,0.06)";
+    ctx.fillRect(PAD.l, PAD.t, plotW, fy - PAD.t);
+    const sweep = PAD.l + (W - PAD.r - PAD.l) * (reduce ? 1 : Math.min(1, progress * 1.4));
+    ctx.setLineDash([7, 5]); ctx.strokeStyle = C.fire; ctx.lineWidth = 2;
+    ctx.shadowColor = "rgba(255,107,74,0.7)"; ctx.shadowBlur = 10;
+    ctx.beginPath(); ctx.moveTo(PAD.l, fy); ctx.lineTo(sweep, fy); ctx.stroke();
+    ctx.restore();
+    ctx.save();
+    ctx.fillStyle = C.fire; ctx.font = "600 11px 'IBM Plex Mono', monospace";
+    ctx.textAlign = "left"; ctx.textBaseline = "bottom"; ctx.globalAlpha = Math.min(1, progress*2);
+    ctx.fillText("FIRE  ≥ 70", PAD.l + 6, fy - 7);
+    ctx.restore();
+
+    // points
+    const reveal = reduce ? 1 : Math.max(0, (progress - 0.25) / 0.75);
+    ctx.textAlign = "left";
+    for (const f of FINDINGS) {
+      const j = jitter[f.name] || {x:0,y:0};
+      const px = xPx(f.attr) + j.x, py = yPx(f.strength) + j.y;
+      const a = Math.min(1, reveal * 1.4);
+      if (f.fired) {
+        // trapped highlight ring (the argument: above line, outside v1 zone)
+        if (f.trapped) {
+          ctx.save(); ctx.globalAlpha = a * 0.9;
+          ctx.strokeStyle = C.fire; ctx.lineWidth = 1; ctx.setLineDash([2,3]);
+          ctx.beginPath(); ctx.arc(px, py, 16 + (1-a)*20, 0, Math.PI*2); ctx.stroke();
+          ctx.restore();
+        }
+        ctx.save(); ctx.globalAlpha = a;
+        ctx.fillStyle = C.fire; ctx.shadowColor = "rgba(255,107,74,0.8)"; ctx.shadowBlur = 16;
+        ctx.beginPath(); ctx.arc(px, py, 7, 0, Math.PI*2); ctx.fill();
+        ctx.restore();
+        ctx.save(); ctx.globalAlpha = a;
+        ctx.fillStyle = C.text; ctx.font = "600 13px 'Space Grotesk', sans-serif";
+        ctx.fillText(f.name.split(" ")[0], px + 13, py - 3);
+        ctx.fillStyle = C.dim; ctx.font = "10px 'IBM Plex Mono', monospace";
+        ctx.fillText("attr " + f.attr + " · str " + f.strength, px + 13, py + 11);
+        ctx.restore();
+      } else {
+        ctx.save(); ctx.globalAlpha = a;
+        ctx.strokeStyle = C.attr; ctx.lineWidth = 1.5;
+        ctx.beginPath(); ctx.arc(px, py, 5, 0, Math.PI*2); ctx.stroke();
+        ctx.fillStyle = C.dim; ctx.font = "10px 'IBM Plex Mono', monospace";
+        ctx.fillText(f.name.split(" ")[0], px + 9, py - 1);
+        ctx.restore();
+      }
+    }
+  }
+
+  let start = null;
+  function frame(ts) {
+    if (start === null) start = ts;
+    const p = Math.min(1, (ts - start) / 1600);
+    draw(p);
+    if (p < 1) requestAnimationFrame(frame);
+  }
+  function run() { resize(); if (reduce) { draw(1); } else { start = null; requestAnimationFrame(frame); } }
+
+  let rt;
+  window.addEventListener("resize", () => { clearTimeout(rt); rt = setTimeout(() => { resize(); draw(1); }, 120); });
+  document.fonts && document.fonts.ready.then(run);
+  window.addEventListener("load", () => { if (!document.fonts) run(); });
+</script>
+</body>
+</html>
