@@ -1,0 +1,16 @@
+{
+  "name": "client-money-incoming-report",
+  "version": "1.0.0",
+  "description": "Scheduled report: clients receiving USD into a Currency Cloud account and moving it out via Corpay. Publishes to a Notion database.",
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "report": "node src/index.js",
+    "report:dry": "DRY_RUN=true node src/index.js",
+    "report:sample": "SAMPLE=true node src/index.js"
+  },
+  "license": "UNLICENSED",
+  "private": true
+}
