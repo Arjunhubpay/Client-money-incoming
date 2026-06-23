@@ -1,0 +1,43 @@
+name: Client-money report refresh
+
+# Live + interactive:
+#  - cron runs the report on a schedule
+#  - workflow_dispatch gives a manual "Run" button with an adjustable window
+on:
+  schedule:
+    # 06:00 Gulf Standard Time (UTC+4) => 02:00 UTC, daily
+    - cron: "0 2 * * *"
+  workflow_dispatch:
+    inputs:
+      window_days:
+        description: "Trailing window in days"
+        required: false
+        default: "30"
+      dry_run:
+        description: "Compute only, do not write to Notion"
+        required: false
+        default: "false"
+
+concurrency:
+  group: client-money-report
+  cancel-in-progress: false
+
+jobs:
+  report:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Run report
+        env:
+          CUBE_API_URL: ${{ secrets.CUBE_API_URL }}
+          CUBE_API_TOKEN: ${{ secrets.CUBE_API_TOKEN }}
+          HUBPAY_API_URL: ${{ secrets.HUBPAY_API_URL }}
+          HUBPAY_API_TOKEN: ${{ secrets.HUBPAY_API_TOKEN }}
+          NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
+          NOTION_DATABASE_ID: ${{ secrets.NOTION_DATABASE_ID }}
+          WINDOW_DAYS: ${{ github.event.inputs.window_days || '30' }}
+          DRY_RUN: ${{ github.event.inputs.dry_run || 'false' }}
+        run: node src/index.js
