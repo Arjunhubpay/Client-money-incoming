@@ -1,0 +1,28 @@
+name: CI
+
+# Lightweight gate for changes to the report job. No external secrets are used:
+# we syntax-check every source file and run the report in SAMPLE + DRY_RUN mode,
+# which exercises the full pipeline wiring and the Notion property mapping
+# without hitting any live API.
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Syntax check all sources
+        run: |
+          for f in src/*.js; do node --check "$f"; done
+      - name: Smoke test (sample + dry run, no secrets)
+        env:
+          SAMPLE: "true"
+          DRY_RUN: "true"
+        run: node src/index.js
